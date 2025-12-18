@@ -1,11 +1,13 @@
 const TARGET_SIZE = 1024;
 
+export type FitMode = "contain" | "cover" | "stretch";
+
 export interface ResizeResult {
   resizedUrl: string;
   blob: Blob;
 }
 
-export const resizeImage = (file: File): Promise<ResizeResult> => {
+export const resizeImage = (file: File, fitMode: FitMode = "contain"): Promise<ResizeResult> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const canvas = document.createElement("canvas");
@@ -24,17 +26,30 @@ export const resizeImage = (file: File): Promise<ResizeResult> => {
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, TARGET_SIZE, TARGET_SIZE);
 
-      // Calculate scaling to fit and center the image
-      const scale = Math.min(
-        TARGET_SIZE / img.width,
-        TARGET_SIZE / img.height
-      );
-      const scaledWidth = img.width * scale;
-      const scaledHeight = img.height * scale;
-      const x = (TARGET_SIZE - scaledWidth) / 2;
-      const y = (TARGET_SIZE - scaledHeight) / 2;
+      let x = 0, y = 0, scaledWidth = TARGET_SIZE, scaledHeight = TARGET_SIZE;
 
-      // Draw the image centered
+      if (fitMode === "stretch") {
+        // Stretch: distort to fill exactly
+        x = 0;
+        y = 0;
+        scaledWidth = TARGET_SIZE;
+        scaledHeight = TARGET_SIZE;
+      } else if (fitMode === "cover") {
+        // Cover: scale to fill, crop overflow
+        const scale = Math.max(TARGET_SIZE / img.width, TARGET_SIZE / img.height);
+        scaledWidth = img.width * scale;
+        scaledHeight = img.height * scale;
+        x = (TARGET_SIZE - scaledWidth) / 2;
+        y = (TARGET_SIZE - scaledHeight) / 2;
+      } else {
+        // Contain: scale to fit inside, preserve aspect ratio
+        const scale = Math.min(TARGET_SIZE / img.width, TARGET_SIZE / img.height);
+        scaledWidth = img.width * scale;
+        scaledHeight = img.height * scale;
+        x = (TARGET_SIZE - scaledWidth) / 2;
+        y = (TARGET_SIZE - scaledHeight) / 2;
+      }
+
       ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
 
       canvas.toBlob(
