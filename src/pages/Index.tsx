@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { DropZone } from "@/components/DropZone";
 import { ImagePreview } from "@/components/ImagePreview";
-import { resizeImage, downloadImage, ResizeResult } from "@/lib/imageResize";
+import { FitModeSelector } from "@/components/FitModeSelector";
+import { resizeImage, downloadImage, ResizeResult, FitMode } from "@/lib/imageResize";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -10,20 +11,13 @@ const Index = () => {
   const [originalSize, setOriginalSize] = useState({ width: 0, height: 0 });
   const [resizeResult, setResizeResult] = useState<ResizeResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [fitMode, setFitMode] = useState<FitMode>("contain");
+  const currentFileRef = useRef<File | null>(null);
 
-  const handleImageDrop = useCallback(async (file: File) => {
+  const processImage = useCallback(async (file: File, mode: FitMode) => {
     setIsProcessing(true);
-    
-    // Get original dimensions
-    const img = new Image();
-    img.onload = () => {
-      setOriginalSize({ width: img.width, height: img.height });
-    };
-    img.src = URL.createObjectURL(file);
-    setOriginalUrl(img.src);
-
     try {
-      const result = await resizeImage(file);
+      const result = await resizeImage(file, mode);
       setResizeResult(result);
       toast.success("Image resized to 1024×1024!");
     } catch (error) {
@@ -33,6 +27,27 @@ const Index = () => {
       setIsProcessing(false);
     }
   }, []);
+
+  const handleImageDrop = useCallback(async (file: File) => {
+    currentFileRef.current = file;
+    
+    // Get original dimensions
+    const img = new Image();
+    img.onload = () => {
+      setOriginalSize({ width: img.width, height: img.height });
+    };
+    img.src = URL.createObjectURL(file);
+    setOriginalUrl(img.src);
+
+    processImage(file, fitMode);
+  }, [fitMode, processImage]);
+
+  const handleFitModeChange = useCallback((mode: FitMode) => {
+    setFitMode(mode);
+    if (currentFileRef.current) {
+      processImage(currentFileRef.current, mode);
+    }
+  }, [processImage]);
 
   const handleReset = useCallback(() => {
     if (originalUrl) URL.revokeObjectURL(originalUrl);
@@ -52,13 +67,14 @@ const Index = () => {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-6 md:p-12">
       {/* Header */}
-      <header className="text-center mb-12 animate-fade-in">
+      <header className="text-center mb-8 animate-fade-in">
         <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-3 tracking-tight">
           Image <span className="text-primary">Resizer</span>
         </h1>
-        <p className="text-muted-foreground text-lg">
+        <p className="text-muted-foreground text-lg mb-6">
           Drop an image to resize it to 1024×1024
         </p>
+        <FitModeSelector value={fitMode} onChange={handleFitModeChange} />
       </header>
 
       {/* Main Content */}
